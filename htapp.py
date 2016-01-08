@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import tarfile
 
 
 def build(docker_build_cli, path, vhost):
@@ -12,10 +11,13 @@ def deploy(docker_build_cli, docker_run_cli, vhost):
     command = "/bin/sh -c \"while true; do echo hello |nc -l 80;done\""
     image = docker_build_cli.get_image(vhost)
     docker_run_cli.load_image(image.data)
-    container = docker_run_cli.create_container(image=vhost, command=command,
-                                                ports=[80], name=vhost)
-    response = docker_run_cli.start(container=container.get('Id'))
 
+    container = docker_run_cli.create_container(
+            image=vhost, command=command, ports=[80],
+            host_config=docker_run_cli.create_host_config(
+                port_bindings={80: None}), name=vhost)
+
+    response = docker_run_cli.start(container=container.get('Id'))
 
 
 def remove():

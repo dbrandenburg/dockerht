@@ -29,11 +29,10 @@ def update_router(vhost, target, redis_host, redis_port=6379):
         port=redis_port,
         db=0)
     redis_connection.rpush('frontend:' + vhost, target)
-    dbs = redis_connection.keys()
-    print(dbs)
+
 
 if __name__ == "__main__":
 
-    docker_run_url = 'tcp://192.168.99.100:2376'
+    docker_run_url = 'tcp://192.168.99.102:2376'
     host = re.split('(://|:)', docker_run_url)[2]
-    update_router('frontend:www.foo.com', 'http://173.194.112.239:80', host)
+    update_router('www.foo.com', 'http://173.194.112.239:80', host)

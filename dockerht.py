@@ -56,6 +56,24 @@ class DockerHt:
         htrouter_inspect = htrouter.setup(self.docker_run_cli, htrouter_status)
         return htrouter_inspect
 
+    def push_build(self, path, vhost):
+        self.clean_old_containers()
+        if vhost in self.container_names:
+            self.docker_run_cli.rename(vhost, vhost + '_old')
+        # Delete old host if exists
+        htapp.build(self.docker_build_cli, path, vhost)
+        htapp.deploy(self.docker_build_cli, self.docker_run_cli, vhost)
+
+        for port, vhost in self.container_names_and_ports:
+            target = 'http://127.0.0.1:' + port
+            htrouter.update_router(vhost, target, self.redis_run_host)
+
+    def clean_old_containers(self):
+        for container in self.container_names:
+            if container.endswith('_old'):
+                self.docker_run_cli.stop(container)
+                self.docker_run_cli.remove_container(container)
+
     @property
     def redis_run_host(self):
         """
@@ -65,15 +83,38 @@ class DockerHt:
         host = re.split('(://|:)', self.docker_run_url)[2]
         return host
 
-    def push_build(self, path, vhost):
-        htapp.build(self.docker_build_cli, path, vhost)
-        htapp.deploy(self.docker_build_cli, self.docker_run_cli, vhost)
+    @property
+    def container_names(self):
+        """
+        A property to return all containers of the run instance.
+        """
+        names = []
+        containers = self.docker_run_cli.containers(all=True)
+        for container in containers:
+            name = container['Names'][0][1:]
+            names.append(name)
+        return names
+
+    @property
+    def container_names_and_ports(self):
+        container_names_and_ports = []
+        containers = self.docker_run_cli.containers(all=True)
+        for container in containers:
+            try:
+                port = container['Ports'][0]['PublicPort']
+                vhost = container['Names'][0][1:]
+                container_names_and_ports.append((str(port), vhost))
+            except (KeyError, IndexError):
+                pass
+        return container_names_and_ports
 
 if __name__ == "__main__":
     dockerht = DockerHt(config)
-    if dockerht.setup():
-        print("Htrouter is running.")
-    else:
-        print("Htrouter setup failed")
-    dockerht.push_build("myapp", "www.vhost.com")
+    dockerht.clean_old_containers()
+    print(dockerht.container_names_and_ports)
+    #if dockerht.setup():
+    #    print("Htrouter is running.")
+    #else:
+    #    print("Htrouter setup failed")
+    dockerht.push_build("myapp", "www.vhostsa.com")
     #htrouter.update_router('www.foo.com', 'http://173.194.112.239:80', dockerht.redis_run_host)

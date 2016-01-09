@@ -56,21 +56,25 @@ class DockerHt:
         htrouter_inspect = htrouter.setup(self.docker_run_cli, htrouter_status)
         return htrouter_inspect
 
-    def push_build(self, path, vhost):
-        self.clean_old_containers()
+    def push_build(self, path, vhost, command):
+        """
+        builds, pushes and makes a Docker container available via vhost.
+        """
+        self.__clean_old_containers()
         if vhost in self.container_names:
             self.docker_run_cli.rename(vhost, vhost + '_old')
-        # Delete old host if exists
         htapp.build(self.docker_build_cli, path, vhost)
-        htapp.deploy(self.docker_build_cli, self.docker_run_cli, vhost)
-
+        htapp.deploy(self.docker_build_cli, self.docker_run_cli, vhost,
+                     command)
         for port, vhost in self.container_names_and_ports:
             target = 'http://127.0.0.1:' + port
             htrouter.update_router(vhost, target, self.redis_run_host)
+        self.__clean_old_containers()
 
-    def clean_old_containers(self):
+    def __clean_old_containers(self):
         for container in self.container_names:
             if container.endswith('_old'):
+                print(container)
                 self.docker_run_cli.stop(container)
                 self.docker_run_cli.remove_container(container)
 
@@ -97,6 +101,9 @@ class DockerHt:
 
     @property
     def container_names_and_ports(self):
+        """
+        Returns all container names ans ports as a list of tuples.
+        """
         container_names_and_ports = []
         containers = self.docker_run_cli.containers(all=True)
         for container in containers:
@@ -110,11 +117,10 @@ class DockerHt:
 
 if __name__ == "__main__":
     dockerht = DockerHt(config)
-    dockerht.clean_old_containers()
-    print(dockerht.container_names_and_ports)
-    #if dockerht.setup():
-    #    print("Htrouter is running.")
-    #else:
-    #    print("Htrouter setup failed")
-    dockerht.push_build("myapp", "www.vhostsa.com")
+    if dockerht.setup():
+        print("Htrouter is running.")
+    else:
+        print("Htrouter setup failed")
+    command = "/bin/sh -c \"while true; do echo hello |nc -l 80;done\""
+    dockerht.push_build("myapp", "www.foo.com", command)
     #htrouter.update_router('www.foo.com', 'http://173.194.112.239:80', dockerht.redis_run_host)

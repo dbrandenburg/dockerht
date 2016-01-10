@@ -10,18 +10,20 @@ def build(docker_build_cli, path, vhost):
     for response in docker_build_cli.build(path=path, tag=vhost,
                                            rm=True, decode=True):
         if 'error' in response:
-            raise Exception("Error building docker image: {}".format(response['error']))
+            raise Exception("Error building docker image: " +
+                            response['error'])
 
 
-def deploy(docker_build_cli, docker_run_cli, vhost, command):
+def deploy(docker_build_cli, docker_web_cli, vhost, command=None):
     """
-    Save an image from the Docker build machine and load it on the Docker run
+    Saves an image from the Docker build machine and loads it on the Docker web
     machine.
     """
     image = docker_build_cli.get_image(vhost)
-    docker_run_cli.load_image(image.data)
-    container = docker_run_cli.create_container(
+    docker_web_cli.load_image(image.data)
+    container = docker_web_cli.create_container(
             image=vhost, command=command, ports=[80],
-            host_config=docker_run_cli.create_host_config(
+            host_config=docker_web_cli.create_host_config(
                 port_bindings={80: None}), name=vhost)
-    response = docker_run_cli.start(container=container.get('Id'))
+    docker_web_cli.start(container=container.get('Id'))
+    return(container)

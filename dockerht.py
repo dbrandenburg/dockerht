@@ -4,7 +4,7 @@ import sys
 import re
 import docker
 
-import htrouter
+import hipache
 import htregistry
 import htapp
 import config
@@ -13,87 +13,96 @@ import config
 class DockerHt:
     def __init__(self, config):
         """
-        Initializes config and prepares build and run cli. If no docker url
-        given for each cli connection, try fetching cli url from environment.
+        Initializes the config and cli.
         """
         self.config = config
+        self.docker_web_url, self.docker_web_cli = self.init_docker_cli(
+            config.docker_web_container)
+        self.docker_build_url, self.docker_build_cli = self.init_docker_cli(
+            config.docker_build_container)
+
+    def init_docker_cli(self, container_config):
+        """
+        Prepares the build and web cli. If no docker url given for each cli
+        connection, try fetching cli url from the environment.
+        """
         try:
-            self.docker_run_url = config.docker_run_url
+            docker_web_url = container_config['url']
             tls_config = docker.tls.TLSConfig(
-                verify=config.docker_run_ca_cert,
+                verify=True,
+                ca_cert=container_config['ca_cert'],
+                client_cert=(container_config['client_cert'],
+                             container_config['client_key']),
                 assert_hostname=False)
-            self.docker_run_cli = docker.client.Client(
-                base_url=self.docker_run_url, tls=tls_config)
+            docker_web_cli = docker.client.Client(
+                base_url=container_config['url'], tls=tls_config)
         except AttributeError:
             kwargs = docker.utils.kwargs_from_env(assert_hostname=False)
             cf = kwargs['tls']
-            self.docker_run_url = kwargs['base_url']
-            self.docker_run_cli = docker.client.Client(**kwargs)
-        try:
-            self.docker_build_url = config.docker_build_url
-            tls_config = docker.tls.TLSConfig(
-                verify=config.docker_build_ca_cert,
-                assert_hostname=False)
-            self.docker_build_cli = docker.client.Client(
-                base_url=self.docker_build_url, tls=tls_config)
-        except AttributeError:
-            kwargs = docker.utils.kwargs_from_env(assert_hostname=False)
-            self.docker_build_url = kwargs['base_url']
-            self.docker_build_cli = docker.client.Client(**kwargs)
+            docker_web_url = kwargs['base_url']
+            docker_web_cli = docker.client.Client(**kwargs)
+        return docker_web_url, docker_web_cli
 
     def setup(self):
         """
-        Inspects the htrouter container and starts the htrouter setup by
-        passing in the container's status. If inspection fails with a NotFound
-        Docker error, None is passed in for the htrouter setup.
+        Inspects the hipache container and starts the hipache setup. If
+        inspection fails with a NotFound Docker error, None is passed in for
+        the hipache setup.
         """
-        try:
-            htrouter_inspect = self.docker_run_cli.inspect_container(
-                self.config.ht_router_name)
-            htrouter_status = htrouter_inspect['State']['Status']
-        except docker.errors.NotFound:
-            htrouter_status = None
-        htrouter_inspect = htrouter.setup(self.docker_run_cli, htrouter_status)
-        return htrouter_inspect
+        self.hipache_container = hipache.Container(
+            self.docker_web_cli, self.redis_host)
+        hipache_inspect = self.hipache_container.setup()
+        return hipache_inspect
 
     def push_build(self, path, vhost, command):
         """
-        builds, pushes and makes a Docker container available via vhost.
+        Builds, pushes and makes a Docker container available via vhost.
         """
-        self.__clean_old_containers()
-        if vhost in self.container_names:
-            self.docker_run_cli.rename(vhost, vhost + '_old')
+        self.clean_tmp_containers()
         htapp.build(self.docker_build_cli, path, vhost)
-        htapp.deploy(self.docker_build_cli, self.docker_run_cli, vhost,
-                     command)
-        for port, vhost in self.container_names_and_ports:
-            target = 'http://127.0.0.1:' + port
-            htrouter.update_router(vhost, target, self.redis_run_host)
-        self.__clean_old_containers()
+        if vhost in self.container_names:
+            tmp_container_name = vhost + self.config.tmp_suffix
+            self.docker_web_cli.rename(vhost, tmp_container_name)
+            htapp.deploy(self.docker_build_cli self.docker_web_cli, vhost,
+                         command)
+            self.hipache_container.update_all(self.container_names_and_ports,
+                                              self.config.tmp_suffix)
+            self.docker_web_cli.stop(tmp_container_name)
+            self.docker_web_cli.remove_container(tmp_container_name)
 
-    def __clean_old_containers(self):
+        else:
+            htapp.deploy(self.docker_build_cli, self.docker_web_cli,
+                         vhost, command)
+            self.hipache_container.update_all(self.container_names_and_ports,
+                                              self.config.tmp_suffix)
+
+    def clean_tmp_containers(self):
+        """
+        Stops and removes all temporary containers which names are ending with
+        the tmp_suffix and might not have been removed due to unexpected script
+        exits.
+        """
         for container in self.container_names:
-            if container.endswith('_old'):
-                print(container)
-                self.docker_run_cli.stop(container)
-                self.docker_run_cli.remove_container(container)
+            if container.endswith(self.config.tmp_suffix):
+                self.docker_web_cli.stop(container)
+                self.docker_web_cli.remove_container(container)
 
     @property
-    def redis_run_host(self):
+    def redis_host(self):
         """
-        A property to extract the host part out of the docker_run_url. To be
+        A property to extract the host part out of the docker_web_url. To be
         used for the Redis connection.
         """
-        host = re.split('(://|:)', self.docker_run_url)[2]
+        host = re.split('(://|:)', self.docker_web_url)[2]
         return host
 
     @property
     def container_names(self):
         """
-        A property to return all containers of the run instance.
+        A property which returns all containers of the web instance.
         """
         names = []
-        containers = self.docker_run_cli.containers(all=True)
+        containers = self.docker_web_cli.containers(all=True)
         for container in containers:
             name = container['Names'][0][1:]
             names.append(name)
@@ -102,10 +111,11 @@ class DockerHt:
     @property
     def container_names_and_ports(self):
         """
-        Returns all container names ans ports as a list of tuples.
+        A property which returns all container names ans ports as a list of
+        tuples.
         """
         container_names_and_ports = []
-        containers = self.docker_run_cli.containers(all=True)
+        containers = self.docker_web_cli.containers(all=True)
         for container in containers:
             try:
                 port = container['Ports'][0]['PublicPort']
@@ -118,9 +128,8 @@ class DockerHt:
 if __name__ == "__main__":
     dockerht = DockerHt(config)
     if dockerht.setup():
-        print("Htrouter is running.")
+        print("hipache is running.")
     else:
-        print("Htrouter setup failed")
+        print("hipache setup failed")
     command = "/usr/sbin/httpd -DFOREGROUND"
-    dockerht.push_build("myapp", "www.foo.com", command)
-    #htrouter.update_router('www.foo.com', 'http://173.194.112.239:80', dockerht.redis_run_host)
+    dockerht.push_build("myapp", "www.bob.com", command)

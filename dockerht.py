@@ -121,6 +121,6 @@ if __name__ == "__main__":
         print("Htrouter is running.")
     else:
         print("Htrouter setup failed")
-    command = "/bin/sh -c \"while true; do echo hello |nc -l 80;done\""
+    command = "/usr/sbin/httpd -DFOREGROUND"
     dockerht.push_build("myapp", "www.foo.com", command)
     #htrouter.update_router('www.foo.com', 'http://173.194.112.239:80', dockerht.redis_run_host)

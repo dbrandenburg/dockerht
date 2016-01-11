@@ -5,9 +5,13 @@ import docker
 
 class Container:
 
-    def __init__(self, docker_web_cli, redis_host):
+    def __init__(self, docker_web_cli, redis_host, redis_port=6379):
         self.docker_web_cli = docker_web_cli
-        self.redis_host = redis_host
+        redis_host = redis_host
+        self.redis_connection = redis.StrictRedis(
+            host=redis_host,
+            port=redis_port,
+            db=0)
 
     def status(self):
         """
@@ -40,26 +44,29 @@ class Container:
         else:
             raise Exception('Hipache nor running correctly.')
 
-    def update(self, vhost, target, redis_port=6379):
+    def delete_vhost(self, vhost):
+        """
+        Delete a particular vhost to not get served by hipache any further.
+        """
+        self.redis_connection.delete('frontend:' + vhost)
+
+    def update_vhost(self, vhost, target):
         """
         Updates the reverse proxy configuration vhost to backend:port in redis.
         """
-        redis_connection = redis.StrictRedis(
-            host=self.redis_host,
-            port=redis_port,
-            db=0)
-        redis_connection.delete('frontend:' + vhost)
-        redis_connection.rpush('frontend:' + vhost, vhost)
-        redis_connection.rpush('frontend:' + vhost, target)
-        keys = redis_connection.keys('*')
-        print(redis_connection.lrange('frontend:' + vhost, 0, 2))
+        self.redis_connection.delete('frontend:' + vhost)
+        self.redis_connection.rpush('frontend:' + vhost, vhost)
+        self.redis_connection.rpush('frontend:' + vhost, target)
+        keys = self.redis_connection.keys('*')
+        print(self.redis_connection.lrange('frontend:' + vhost, 0, 2))
 
-    def update_all(self, container_names_and_ports, ignore_suffix):
+    def update_all_vhosts(self, container_names_and_ports, ignore_suffix):
         """
         Updates all vhost configurations to point to the right port the docker
-        container runs on. Ignores container names ending with ignore_suffix.
+        container listens on. Ignores container names ending with
+        ignore_suffix.
         """
         for port, vhost in container_names_and_ports:
             if not vhost.endswith(ignore_suffix):
                 target = 'http://127.0.0.1:' + port
-                self.update(vhost, target)
+                self.update_vhost(vhost, target)

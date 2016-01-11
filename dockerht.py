@@ -15,12 +15,12 @@ class DockerHt:
         Initializes the config and cli.
         """
         self.config = config
-        self.docker_web_url, self.docker_web_cli = self.init_docker_cli(
+        self.docker_web_url, self.docker_web_cli = self.__init_docker_cli(
             config.docker_web_container)
-        self.docker_build_url, self.docker_build_cli = self.init_docker_cli(
+        self.docker_build_url, self.docker_build_cli = self.__init_docker_cli(
             config.docker_build_container)
 
-    def init_docker_cli(self, container_config):
+    def __init_docker_cli(self, container_config):
         """
         Prepares the build and web cli. If no docker url given for each cli
         connection, try fetching cli url from the environment.
@@ -52,29 +52,37 @@ class DockerHt:
         hipache_inspect = self.hipache_container.setup()
         return hipache_inspect
 
-    def push_build(self, path, vhost, command):
+    def push_app(self, path, vhost, command):
         """
         Builds, pushes and makes a Docker container available via vhost.
         """
-        self.clean_tmp_containers()
+        self.remove_tmp_apps()
         dockerapp.build(self.docker_build_cli, path, vhost)
         if vhost in self.container_names:
             tmp_container_name = vhost + self.config.tmp_suffix
             self.docker_web_cli.rename(vhost, tmp_container_name)
             dockerapp.deploy(self.docker_build_cli, self.docker_web_cli, vhost,
                              command)
-            self.hipache_container.update_all(self.container_names_and_ports,
-                                              self.config.tmp_suffix)
+            self.hipache_container.update_all_vhosts(
+                self.container_names_and_ports, self.config.tmp_suffix)
             self.docker_web_cli.stop(tmp_container_name)
             self.docker_web_cli.remove_container(tmp_container_name)
 
         else:
             dockerapp.deploy(self.docker_build_cli, self.docker_web_cli,
                              vhost, command)
-            self.hipache_container.update_all(self.container_names_and_ports,
-                                              self.config.tmp_suffix)
+            self.hipache_container.update_all_vhosts(
+                self.container_names_and_ports, self.config.tmp_suffix)
 
-    def clean_tmp_containers(self):
+    def remove_app(self, vhost):
+        """
+        Remove a particular Docker app container based on the vhost name.
+        """
+        container = vhost
+        self.docker_web_cli.stop(container)
+        self.docker_web_cli.remove_container(container)
+
+    def remove_tmp_apps(self):
         """
         Stops and removes all temporary containers which names are ending with
         the tmp_suffix and might not have been removed due to unexpected script
@@ -130,4 +138,4 @@ if __name__ == "__main__":
     else:
         print("hipache setup failed")
     command = "/usr/sbin/httpd -DFOREGROUND"
-    dockerht.push_build("myapp", "www.bob.com", command)
+    dockerht.push_app("myapp", "www.bob.com", command)

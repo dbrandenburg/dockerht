@@ -5,7 +5,7 @@ import re
 import docker
 
 import hipache
-import htapp
+import dockerapp
 import config
 
 
@@ -57,11 +57,11 @@ class DockerHt:
         Builds, pushes and makes a Docker container available via vhost.
         """
         self.clean_tmp_containers()
-        htapp.build(self.docker_build_cli, path, vhost)
+        dockerapp.build(self.docker_build_cli, path, vhost)
         if vhost in self.container_names:
             tmp_container_name = vhost + self.config.tmp_suffix
             self.docker_web_cli.rename(vhost, tmp_container_name)
-            htapp.deploy(self.docker_build_cli, self.docker_web_cli, vhost,
+            dockerapp.deploy(self.docker_build_cli, self.docker_web_cli, vhost,
                          command)
             self.hipache_container.update_all(self.container_names_and_ports,
                                               self.config.tmp_suffix)
@@ -69,7 +69,7 @@ class DockerHt:
             self.docker_web_cli.remove_container(tmp_container_name)
 
         else:
-            htapp.deploy(self.docker_build_cli, self.docker_web_cli,
+            dockerapp.deploy(self.docker_build_cli, self.docker_web_cli,
                          vhost, command)
             self.hipache_container.update_all(self.container_names_and_ports,
                                               self.config.tmp_suffix)

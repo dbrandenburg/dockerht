@@ -5,7 +5,6 @@ import re
 import docker
 
 import hipache
-import htregistry
 import htapp
 import config
 
@@ -45,9 +44,8 @@ class DockerHt:
 
     def setup(self):
         """
-        Inspects the hipache container and starts the hipache setup. If
-        inspection fails with a NotFound Docker error, None is passed in for
-        the hipache setup.
+        Initializes the hipache setup routine which is triggering a hipache
+        Docker setup in case the machine is not existent.
         """
         self.hipache_container = hipache.Container(
             self.docker_web_cli, self.redis_host)
@@ -63,7 +61,7 @@ class DockerHt:
         if vhost in self.container_names:
             tmp_container_name = vhost + self.config.tmp_suffix
             self.docker_web_cli.rename(vhost, tmp_container_name)
-            htapp.deploy(self.docker_build_cli self.docker_web_cli, vhost,
+            htapp.deploy(self.docker_build_cli, self.docker_web_cli, vhost,
                          command)
             self.hipache_container.update_all(self.container_names_and_ports,
                                               self.config.tmp_suffix)

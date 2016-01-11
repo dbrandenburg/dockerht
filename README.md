@@ -10,7 +10,7 @@ It makes use of the Docker API with docker-py and includes a setup procedure to 
 written in NodeJs, perfect to run a high number of VHosts. DockerHt supports different targets for building and running images
 and works without the need of running a Docker registry.
 
-As a requirement to run DockerHt you need to have at least one VM running Docker, as well as a wildcard DNS entry pointing
+As a requirement to run DockerHt you need to have at least one host running Docker, as well as a wildcard DNS entry pointing
 to it. In order to test DockerHt simply install Docker including DockerMachine on your Mac computer, create two machines
-called "build" and "web", and place your Dockerfile and application inside the myapp folder. Then change your chost inside
-dockerht.py.
+called "build" and "web", configure the ip addresses corresponding to your VMs in config.py and place your application 
+including your Dockerfile inside the myapp folder. Then crun dockerht.py -h to get help about arguments.

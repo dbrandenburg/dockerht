@@ -34,7 +34,7 @@ class Container:
             self.docker_web_cli.pull('hipache:0.2.8')
             hipache_container = self.docker_web_cli.create_container(
                 'hipache:0.2.8', name='hipache', ports=['80', '443', '6379'],
-                host_config=docker_web_cli.create_host_config(
+                host_config=self.docker_web_cli.create_host_config(
                     network_mode='host'))
         self.docker_web_cli.start('hipache')
         hipache_inspect = self.docker_web_cli.inspect_container('hipache')

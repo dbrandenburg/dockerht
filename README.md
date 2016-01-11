@@ -12,5 +12,5 @@ and works without the need of running a Docker registry.
 
 As a requirement to run DockerHt you need to have at least one VM running Docker, as well as a wildcard DNS entry pointing
 to it. In order to test DockerHt simply install Docker including DockerMachine on your Mac computer, create two machines
-called "build" and "web", and plave your Dockerfile and application inside the myapp folder. Then change your chost inside
+called "build" and "web", and place your Dockerfile and application inside the myapp folder. Then change your chost inside
 dockerht.py.

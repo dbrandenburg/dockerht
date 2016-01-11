@@ -62,7 +62,7 @@ class DockerHt:
             tmp_container_name = vhost + self.config.tmp_suffix
             self.docker_web_cli.rename(vhost, tmp_container_name)
             dockerapp.deploy(self.docker_build_cli, self.docker_web_cli, vhost,
-                         command)
+                             command)
             self.hipache_container.update_all(self.container_names_and_ports,
                                               self.config.tmp_suffix)
             self.docker_web_cli.stop(tmp_container_name)
@@ -70,7 +70,7 @@ class DockerHt:
 
         else:
             dockerapp.deploy(self.docker_build_cli, self.docker_web_cli,
-                         vhost, command)
+                             vhost, command)
             self.hipache_container.update_all(self.container_names_and_ports,
                                               self.config.tmp_suffix)
 

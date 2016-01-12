@@ -1,7 +1,5 @@
 # DockerHt
 
-NOTE: This software is still under development and in "Experimental State".
-
 DockerHt (Docker HTTP tenants) is an easy solution to build and deploy Docker based web applications each at a time with a
 high number of running Vhosts on a single host based on Docker and Hipache. This is perfect for small web applications,
 prototyping and testing.

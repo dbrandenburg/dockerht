@@ -27,7 +27,7 @@ import config
 class DockerHt:
     def __init__(self, config):
         """
-        Initializes the config and cli.
+        Initializes the config, cli and the hipache container.
         """
         self.config = config
         self.docker_web_url, self.docker_web_cli = self.__init_docker_cli(
@@ -64,7 +64,6 @@ class DockerHt:
         Initializes the hipache setup routine which is triggering a hipache
         Docker setup in case the machine is not existent.
         """
-
         hipache_inspect = self.hipache_container.setup()
         if hipache_inspect:
             print("hipache is running.")
@@ -101,7 +100,7 @@ class DockerHt:
         """
         self.docker_web_cli.stop(vhost)
         self.docker_web_cli.remove_container(vhost)
-        self.hipache.delete_vhost(vhost)
+        self.hipache_container.delete_vhost(vhost)
 
     def remove_tmp_apps(self):
         """

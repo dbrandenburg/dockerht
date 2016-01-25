@@ -73,7 +73,6 @@ class Container:
         self.redis_connection.rpush('frontend:' + vhost, vhost)
         self.redis_connection.rpush('frontend:' + vhost, target)
         keys = self.redis_connection.keys('*')
-        print(self.redis_connection.lrange('frontend:' + vhost, 0, 2))
 
     def update_all_vhosts(self, container_names_and_ports, ignore_suffix):
         """

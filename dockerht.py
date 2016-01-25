@@ -145,13 +145,20 @@ class DockerHt:
         containers = self.docker_web_cli.containers(all=True)
         for container in containers:
             try:
-                port = container['Ports'][0]['PublicPort']
+                port = None
                 vhost = container['Names'][0][1:]
-                container_names_and_ports.append((str(port), vhost))
-            except (KeyError, IndexError):
+                ports = container['Ports']
+                for port in ports:
+                    try:
+                        port = port['PublicPort']
+                        container_names_and_ports.append((str(port), vhost))
+                    except KeyError:
+                        pass
+            except IndexError:
                 pass
         return container_names_and_ports
 
+    @classmethod
     def argument_parsing(self):
         parser = argparse.ArgumentParser(
             description="DockerHt is used to build and deploy Docker web " +
@@ -167,10 +174,11 @@ class DockerHt:
 
 
 if __name__ == "__main__":
-    dockerht = DockerHt(config)
-    args = dockerht.argument_parsing()
+    args = DockerHt.argument_parsing()
     app_dir = args['app_dir'][0]
     vhost = args['vhost'][0]
     command = args['command'][0]
+    dockerht = DockerHt(config)
+    d = dockerht.container_names_and_ports
     dockerht.setup()
     dockerht.push_app(app_dir, vhost, command)

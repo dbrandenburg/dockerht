@@ -1,3 +1,2 @@
-FROM centos:7
-RUN yum -y install httpd
-CMD ["/usr/sbin/httpd", "-DFOREGROUND"]
+FROM nginx:latest
+COPY index.html /usr/share/nginx/html/index.html
